@@ -1,0 +1,17 @@
+user_id,email,monthly_income,credit_score,employment_status,age
+USR001,rahul.sharma@email.com,70833,750,employed,32
+USR002,priya.patel@email.com,50000,720,self_employed,28
+USR003,amit.kumar@email.com,100000,800,self_employed,45
+USR004,sneha.reddy@email.com,40000,680,employed,35
+USR005,vikram.singh@email.com,60000,750,employed,29
+USR006,anita.gupta@email.com,45833,690,self_employed,38
+USR007,rajesh.verma@email.com,79166,780,self_employed,52
+USR008,kavita.joshi@email.com,31666,650,employed,26
+USR009,suresh.nair@email.com,58333,730,employed,41
+USR010,deepa.menon@email.com,51666,710,self_employed,33
+USR011,arun.pillai@email.com,91666,790,self_employed,47
+USR012,meera.shah@email.com,43333,700,employed,30
+USR013,karthik.rajan@email.com,56666,740,employed,36
+USR014,pooja.desai@email.com,35000,670,employed,27
+USR015,nikhil.rao@email.com,73333,760,self_employed,43
+Kaustubh Biswas,kaustubhbiswas001@gmail.com,760000,600,Salaried,22

@@ -1,0 +1,293 @@
+{
+  "name": "Workflow A: Loan Product Crawler",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Cron Trigger (Every 6 Hours)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-crawler",
+        "responseMode": "lastNode"
+      },
+      "id": "manual-webhook",
+      "name": "Manual Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Bank loan product sources to crawl\nconst sources = [\n  {\n    bank: 'HDFC Bank',\n    url: 'https://www.hdfcbank.com/personal/borrow/popular-loans/personal-loan',\n    type: 'personal'\n  },\n  {\n    bank: 'ICICI Bank',\n    url: 'https://www.icicibank.com/personal-banking/loans/personal-loan',\n    type: 'personal'\n  },\n  {\n    bank: 'SBI',\n    url: 'https://sbi.co.in/web/personal-banking/loans/personal-loans',\n    type: 'personal'\n  },\n  {\n    bank: 'Axis Bank',\n    url: 'https://www.axisbank.com/retail/loans/personal-loan',\n    type: 'personal'\n  },\n  {\n    bank: 'Bajaj Finserv',\n    url: 'https://www.bajajfinserv.in/personal-loan',\n    type: 'personal'\n  },\n  {\n    bank: 'Kotak Mahindra',\n    url: 'https://www.kotak.com/en/personal-banking/loans/personal-loan.html',\n    type: 'personal'\n  }\n];\n\nreturn sources.map(s => ({ json: s }));"
+      },
+      "id": "get-sources",
+      "name": "Get Bank Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          }
+        }
+      },
+      "id": "fetch-page",
+      "name": "Fetch Bank Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [700, 400],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse HTML content and extract loan product details\n// In production, use proper HTML parsing with Cheerio\n\nconst bank = $input.first().json.bank;\nconst url = $input.first().json.url;\nconst html = $input.first().json.data || '';\n\n// Default loan product data (simulated extraction)\n// These values represent typical Indian bank personal loan offerings\nconst bankProducts = {\n  'HDFC Bank': {\n    interest_rate_min: 10.50,\n    interest_rate_max: 21.00,\n    min_loan: 50000,\n    max_loan: 4000000,\n    min_income: 300000,\n    min_credit: 700,\n    min_age: 21,\n    max_age: 60,\n    employment: ['salaried', 'self_employed']\n  },\n  'ICICI Bank': {\n    interest_rate_min: 10.75,\n    interest_rate_max: 19.00,\n    min_loan: 50000,\n    max_loan: 3000000,\n    min_income: 350000,\n    min_credit: 720,\n    min_age: 23,\n    max_age: 58,\n    employment: ['salaried', 'self_employed', 'business']\n  },\n  'SBI': {\n    interest_rate_min: 11.00,\n    interest_rate_max: 15.65,\n    min_loan: 25000,\n    max_loan: 2000000,\n    min_income: 200000,\n    min_credit: 650,\n    min_age: 21,\n    max_age: 65,\n    employment: ['salaried', 'self_employed', 'business', 'retired']\n  },\n  'Axis Bank': {\n    interest_rate_min: 10.49,\n    interest_rate_max: 22.00,\n    min_loan: 50000,\n    max_loan: 4000000,\n    min_income: 360000,\n    min_credit: 700,\n    min_age: 21,\n    max_age: 60,\n    employment: ['salaried', 'self_employed']\n  },\n  'Bajaj Finserv': {\n    interest_rate_min: 11.00,\n    interest_rate_max: 25.00,\n    min_loan: 100000,\n    max_loan: 3500000,\n    min_income: 300000,\n    min_credit: 685,\n    min_age: 21,\n    max_age: 67,\n    employment: ['salaried', 'self_employed', 'business']\n  },\n  'Kotak Mahindra': {\n    interest_rate_min: 10.99,\n    interest_rate_max: 24.00,\n    min_loan: 50000,\n    max_loan: 4000000,\n    min_income: 240000,\n    min_credit: 700,\n    min_age: 21,\n    max_age: 60,\n    employment: ['salaried', 'self_employed']\n  }\n};\n\nconst product = bankProducts[bank] || bankProducts['SBI'];\n\nreturn [{\n  json: {\n    product_name: `${bank} Personal Loan`,\n    provider_name: bank,\n    product_type: 'personal',\n    interest_rate_min: product.interest_rate_min,\n    interest_rate_max: product.interest_rate_max,\n    loan_amount_min: product.min_loan,\n    loan_amount_max: product.max_loan,\n    tenure_min_months: 12,\n    tenure_max_months: 60,\n    min_monthly_income: Math.round(product.min_income / 12),\n    min_credit_score: product.min_credit,\n    max_credit_score: 900,\n    min_age: product.min_age,\n    max_age: product.max_age,\n    accepted_employment_status: product.employment,\n    processing_fee_percent: 2.0,\n    source_url: url,\n    is_active: true,\n    crawled_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse-product",
+      "name": "Parse Loan Product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO loan_products (\n  product_name, provider_name, product_type,\n  interest_rate_min, interest_rate_max,\n  loan_amount_min, loan_amount_max,\n  tenure_min_months, tenure_max_months,\n  min_monthly_income, min_credit_score, max_credit_score,\n  min_age, max_age, accepted_employment_status,\n  processing_fee_percent, source_url, is_active, last_crawled_at\n)\nVALUES (\n  '{{ $json.product_name }}', '{{ $json.provider_name }}', '{{ $json.product_type }}',\n  {{ $json.interest_rate_min }}, {{ $json.interest_rate_max }},\n  {{ $json.loan_amount_min }}, {{ $json.loan_amount_max }},\n  {{ $json.tenure_min_months }}, {{ $json.tenure_max_months }},\n  {{ $json.min_monthly_income }}, {{ $json.min_credit_score }}, {{ $json.max_credit_score }},\n  {{ $json.min_age }}, {{ $json.max_age }}, ARRAY['{{ $json.accepted_employment_status.join(\"','\") }}'],\n  {{ $json.processing_fee_percent }}, '{{ $json.source_url }}', true, NOW()\n)\nON CONFLICT (provider_name, product_name) DO UPDATE SET\n  interest_rate_min = EXCLUDED.interest_rate_min,\n  interest_rate_max = EXCLUDED.interest_rate_max,\n  loan_amount_min = EXCLUDED.loan_amount_min,\n  loan_amount_max = EXCLUDED.loan_amount_max,\n  min_monthly_income = EXCLUDED.min_monthly_income,\n  min_credit_score = EXCLUDED.min_credit_score,\n  is_active = true,\n  last_crawled_at = NOW(),\n  updated_at = NOW()\nRETURNING id, product_name, provider_name;",
+        "options": {}
+      },
+      "id": "upsert-product",
+      "name": "Upsert to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1100, 400],
+      "credentials": {
+        "postgres": {
+          "id": "loan-db-credential",
+          "name": "Loan Engine Database"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all results\nconst results = $input.all().map(item => ({\n  product: item.json.product_name || 'Unknown',\n  provider: item.json.provider_name || 'Unknown',\n  id: item.json.id || null,\n  status: item.json.id ? 'saved' : 'failed'\n}));\n\nconst saved = results.filter(r => r.status === 'saved').length;\nconst failed = results.filter(r => r.status === 'failed').length;\n\n// Log crawler run to database\nconst crawlerRun = {\n  run_id: `crawler_${Date.now()}`,\n  started_at: new Date().toISOString(),\n  completed_at: new Date().toISOString(),\n  status: failed === 0 ? 'success' : 'partial',\n  products_updated: saved,\n  products_failed: failed,\n  sources_crawled: results.length\n};\n\nreturn [{\n  json: {\n    ...crawlerRun,\n    details: results\n  }\n}];"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO crawler_runs (status, products_updated, products_failed, sources_crawled, completed_at)\nVALUES ('{{ $json.status }}', {{ $json.products_updated }}, {{ $json.products_failed }}, {{ $json.sources_crawled }}, NOW())\nRETURNING id;",
+        "options": {}
+      },
+      "id": "log-crawler-run",
+      "name": "Log Crawler Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1500, 400],
+      "credentials": {
+        "postgres": {
+          "id": "loan-db-credential",
+          "name": "Loan Engine Database"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-failures",
+              "leftValue": "={{ $json.products_failed }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-failures",
+      "name": "Any Failures?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1700, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error response when failures occur\nreturn [{\n  json: {\n    status: 'error',\n    message: 'Crawler encountered failures',\n    summary: {\n      products_updated: $input.first().json.products_updated,\n      products_failed: $input.first().json.products_failed,\n      sources_crawled: $input.first().json.sources_crawled\n    },\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final success response\nreturn [{\n  json: {\n    status: 'completed',\n    message: 'Crawler run completed successfully',\n    summary: {\n      products_updated: $input.first().json.products_updated,\n      products_failed: $input.first().json.products_failed,\n      sources_crawled: $input.first().json.sources_crawled\n    },\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 500]
+    }
+  ],
+  "connections": {
+    "Cron Trigger (Every 6 Hours)": {
+      "main": [
+        [
+          {
+            "node": "Get Bank Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Bank Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Bank Sources": {
+      "main": [
+        [
+          {
+            "node": "Fetch Bank Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Bank Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Loan Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Loan Product": {
+      "main": [
+        [
+          {
+            "node": "Upsert to PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert to PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Log Crawler Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Crawler Run": {
+      "main": [
+        [
+          {
+            "node": "Any Failures?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Failures?": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "loan-eligibility",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 2,
+  "pinData": {}
+}

@@ -1,0 +1,61 @@
+# Docker Compose for n8n Workflow Automation
+# Loan data is stored on AWS RDS - this only runs n8n
+
+services:
+  # n8n Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: loan-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Basic Auth
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+      
+      # Host Configuration
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      
+      # n8n Internal Database (SQLite - simpler)
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/home/node/.n8n/database.sqlite
+      
+      # Execution Settings
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      
+      # Timezone
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - TZ=Asia/Kolkata
+      
+      # Security Settings
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+
+      #GEMINI API KEY
+      - GEMINI_API_KEY=AIzaSyDmqrbK6B-9p2UODsKxuGAtv-vefYk_xrs
+      
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows:ro
+    networks:
+      - n8n-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  n8n_data:
+    driver: local
+
+networks:
+  n8n-network:
+    driver: bridge

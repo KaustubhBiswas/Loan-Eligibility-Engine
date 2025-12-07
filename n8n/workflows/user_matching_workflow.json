@@ -1,0 +1,227 @@
+{
+  "name": "Loan Eligibility - User Matching Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "user-matching",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const userIds = items[0].json.user_ids || [];\nconst batchId = items[0].json.batch_id;\n\n// Validate input\nif (!userIds.length) {\n  throw new Error('No user IDs provided');\n}\n\nreturn [{\n  json: {\n    user_ids: userIds,\n    batch_id: batchId,\n    timestamp: new Date().toISOString(),\n    total_users: userIds.length\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.API_GATEWAY_URL}}/api/matching/process",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_ids",
+              "value": "={{$json.user_ids}}"
+            },
+            {
+              "name": "batch_id",
+              "value": "={{$json.batch_id}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call-matching-api",
+      "name": "Call Matching API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.matches_found}}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check-matches",
+      "name": "Check Matches Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.API_GATEWAY_URL}}/api/notifications/send",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "batch_id",
+              "value": "={{$json.batch_id}}"
+            },
+            {
+              "name": "notification_type",
+              "value": "loan_match"
+            }
+          ]
+        }
+      },
+      "id": "send-notifications",
+      "name": "Send Email Notifications",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    status: 'completed',\n    message: 'No matches found for users in this batch',\n    batch_id: items[0].json.batch_id,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "no-matches-handler",
+      "name": "No Matches Handler",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "const matchingResult = items[0].json;\nconst notificationResult = items.length > 1 ? items[1].json : null;\n\nreturn [{\n  json: {\n    status: 'completed',\n    batch_id: matchingResult.batch_id,\n    matching: {\n      total_users: matchingResult.total_users,\n      matches_found: matchingResult.matches_found,\n      processing_time_ms: matchingResult.processing_time_ms\n    },\n    notifications: notificationResult ? {\n      sent: notificationResult.notifications_sent,\n      failed: notificationResult.notifications_failed\n    } : null,\n    completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "prepare-response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "webhookId": "={{$node['Webhook Trigger'].json.webhookId}}",
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Call Matching API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Matching API": {
+      "main": [
+        [
+          {
+            "node": "Check Matches Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Matches Found": {
+      "main": [
+        [
+          {
+            "node": "Send Email Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Matches Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Notifications": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Matches Handler": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "loan-eligibility"
+    },
+    {
+      "name": "user-matching"
+    }
+  ]
+}

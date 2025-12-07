@@ -1,0 +1,287 @@
+{
+  "name": "Workflow B: User-Loan Matching Pipeline (Optimized)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "match-users",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 400],
+      "webhookId": "match-users-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT json_agg(json_build_object('id', id, 'user_id', user_id, 'email', email, 'age', age, 'monthly_income', monthly_income, 'credit_score', credit_score, 'employment_status', employment_status)) as users FROM users WHERE is_active = true",
+        "options": {}
+      },
+      "id": "fetch-users",
+      "name": "Fetch Users",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [450, 400],
+      "credentials": {
+        "postgres": {
+          "id": "loan-db-credential",
+          "name": "Loan Engine Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get users array from query result\nconst users = $input.first().json.users || [];\n\n// Return users as single item to pass to next node\nreturn [{ json: { users: users, stage: 'data_loaded' } }];"
+      },
+      "id": "prepare-users",
+      "name": "Prepare Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT json_agg(json_build_object('product_id', id, 'product_name', product_name, 'provider_name', provider_name, 'interest_rate_min', interest_rate_min, 'interest_rate_max', interest_rate_max, 'loan_amount_min', loan_amount_min, 'loan_amount_max', loan_amount_max, 'tenure_min_months', tenure_min_months, 'tenure_max_months', tenure_max_months, 'min_monthly_income', min_monthly_income, 'min_credit_score', min_credit_score, 'min_age', min_age, 'max_age', max_age, 'accepted_employment_status', accepted_employment_status)) as products FROM loan_products WHERE is_active = true",
+        "options": {}
+      },
+      "id": "fetch-products",
+      "name": "Fetch Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [850, 400],
+      "credentials": {
+        "postgres": {
+          "id": "loan-db-credential",
+          "name": "Loan Engine Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * STAGE 1: SQL PREFILTER\n * Fast elimination of impossible matches using basic eligibility criteria\n * Expected: ~70-80% reduction of total pairs\n */\n\nconst prevData = $('Prepare Users').first().json;\nconst users = prevData.users || [];\nconst products = $input.first().json.products || [];\n\nconst startTime = Date.now();\nconst totalPairs = users.length * products.length;\nconst stage1Candidates = [];\n\nfor (const user of users) {\n  for (const product of products) {\n    // Basic eligibility checks (SQL-like filtering)\n    const incomeEligible = user.monthly_income >= product.min_monthly_income;\n    const creditEligible = user.credit_score >= product.min_credit_score;\n    const ageEligible = user.age >= product.min_age && user.age <= product.max_age;\n    \n    // Employment status check\n    const empMap = {\n      'employed': ['employed', 'salaried'],\n      'salaried': ['employed', 'salaried'],\n      'self_employed': ['self_employed', 'business'],\n      'business': ['self_employed', 'business'],\n      'retired': ['retired'],\n      'student': ['student'],\n      'unemployed': ['unemployed']\n    };\n    const userEmpTypes = empMap[user.employment_status?.toLowerCase()] || [user.employment_status];\n    const acceptedEmployment = product.accepted_employment_status || [];\n    const employmentEligible = acceptedEmployment.length === 0 || \n      userEmpTypes.some(t => acceptedEmployment.includes(t));\n    \n    // STAGE 1: Only pass if ALL basic criteria met\n    if (incomeEligible && creditEligible && ageEligible && employmentEligible) {\n      stage1Candidates.push({\n        user: user,\n        product: product,\n        income_eligible: incomeEligible,\n        credit_eligible: creditEligible,\n        age_eligible: ageEligible,\n        employment_eligible: employmentEligible\n      });\n    }\n  }\n}\n\nconst stage1Time = Date.now() - startTime;\nconst stage1Reduction = totalPairs > 0 ? ((totalPairs - stage1Candidates.length) / totalPairs * 100).toFixed(1) : 0;\n\nreturn [{ \n  json: { \n    users: users,\n    products: products,\n    stage1_candidates: stage1Candidates,\n    stats: {\n      total_users: users.length,\n      total_products: products.length,\n      total_pairs: totalPairs,\n      stage1_passed: stage1Candidates.length,\n      stage1_reduction_percent: stage1Reduction,\n      stage1_time_ms: stage1Time\n    }\n  } \n}];"
+      },
+      "id": "stage1-sql-prefilter",
+      "name": "Stage 1: SQL Prefilter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * STAGE 2: LOGIC FILTER\n * Apply business rules: debt-to-income ratio, EMI affordability\n * Expected: ~50-60% reduction of remaining candidates\n */\n\nconst data = $input.first().json;\nconst candidates = data.stage1_candidates || [];\nconst stats = data.stats;\n\nconst startTime = Date.now();\nconst stage2Candidates = [];\n\n// Helper: Calculate EMI\nfunction calculateEMI(principal, annualRate, tenureMonths) {\n  if (annualRate === 0) return principal / tenureMonths;\n  const monthlyRate = annualRate / 100 / 12;\n  const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths) / \n              (Math.pow(1 + monthlyRate, tenureMonths) - 1);\n  return emi;\n}\n\n// Helper: Calculate eligibility score (0-100)\nfunction calculateScore(user, product) {\n  let score = 0;\n  \n  // Credit score component (40% weight)\n  const creditExcess = user.credit_score - product.min_credit_score;\n  const creditRange = 900 - product.min_credit_score;\n  if (creditRange > 0) {\n    score += Math.min(40, Math.max(0, (creditExcess / creditRange) * 40));\n  }\n  \n  // Income component (30% weight)\n  const incomeExcess = user.monthly_income - product.min_monthly_income;\n  const incomeRange = product.min_monthly_income * 2;\n  if (incomeRange > 0) {\n    score += Math.min(30, Math.max(0, (incomeExcess / incomeRange) * 30));\n  }\n  \n  // Base score for eligible (20%)\n  score += 20;\n  \n  // Age component (10% weight) - prefer middle of range\n  const ageRange = product.max_age - product.min_age;\n  if (ageRange > 0) {\n    const ageMidpoint = (product.min_age + product.max_age) / 2;\n    const ageDiff = Math.abs(user.age - ageMidpoint);\n    score += Math.max(0, (1 - ageDiff / (ageRange / 2)) * 10);\n  }\n  \n  return Math.round(score * 100) / 100;\n}\n\nfor (const candidate of candidates) {\n  const user = candidate.user;\n  const product = candidate.product;\n  \n  // Business Rule 1: Debt-to-Income Ratio\n  // Max 50% of income can go to loan EMI\n  const maxEMI = user.monthly_income * 0.5;\n  \n  // Calculate minimum EMI (at min loan amount, max tenure, max rate)\n  const tenure = product.tenure_max_months || 60;\n  const minEMI = calculateEMI(product.loan_amount_min, product.interest_rate_max, tenure);\n  \n  // Business Rule 2: EMI Affordability\n  // User should be able to afford at least the minimum loan\n  const canAffordMinLoan = minEMI <= maxEMI * 1.5; // 50% buffer\n  \n  if (!canAffordMinLoan) {\n    continue; // Skip this candidate\n  }\n  \n  // Calculate eligibility score\n  const score = calculateScore(user, product);\n  \n  // Business Rule 3: Minimum score threshold\n  if (score < 40) {\n    continue; // Skip low-score candidates\n  }\n  \n  stage2Candidates.push({\n    user_id: user.id,\n    user_email: user.email,\n    user_name: user.user_id,\n    user_age: user.age,\n    user_income: user.monthly_income,\n    user_credit_score: user.credit_score,\n    user_employment: user.employment_status,\n    product_id: product.product_id,\n    product_name: product.product_name,\n    provider_name: product.provider_name,\n    interest_rate_min: product.interest_rate_min,\n    interest_rate_max: product.interest_rate_max,\n    loan_amount_min: product.loan_amount_min,\n    loan_amount_max: product.loan_amount_max,\n    income_eligible: candidate.income_eligible,\n    credit_eligible: candidate.credit_eligible,\n    age_eligible: candidate.age_eligible,\n    employment_eligible: candidate.employment_eligible,\n    eligibility_score: score,\n    max_affordable_emi: maxEMI,\n    min_required_emi: minEMI\n  });\n}\n\n// Sort by score descending\nstage2Candidates.sort((a, b) => b.eligibility_score - a.eligibility_score);\n\nconst stage2Time = Date.now() - startTime;\nconst stage2Reduction = stats.stage1_passed > 0 ? \n  ((stats.stage1_passed - stage2Candidates.length) / stats.stage1_passed * 100).toFixed(1) : 0;\n\nreturn [{ \n  json: { \n    stage2_candidates: stage2Candidates,\n    stats: {\n      ...stats,\n      stage2_passed: stage2Candidates.length,\n      stage2_reduction_percent: stage2Reduction,\n      stage2_time_ms: stage2Time\n    }\n  } \n}];"
+      },
+      "id": "stage2-logic-filter",
+      "name": "Stage 2: Logic Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * STAGE 3 PREPARATION: Select Top Candidates for LLM Check\n * Limit to top 50 candidates to control API costs\n */\n\nconst data = $input.first().json;\nconst candidates = data.stage2_candidates || [];\nconst stats = data.stats;\n\n// Select top 50 candidates for LLM check\nconst LLM_BATCH_SIZE = 50;\nconst topCandidates = candidates.slice(0, LLM_BATCH_SIZE);\nconst remainingCandidates = candidates.slice(LLM_BATCH_SIZE);\n\n// High-score candidates (>=75) can bypass LLM check\nconst highScoreCandidates = remainingCandidates.filter(c => c.eligibility_score >= 75);\n\nreturn [{ \n  json: { \n    llm_candidates: topCandidates,\n    high_score_bypass: highScoreCandidates,\n    stats: {\n      ...stats,\n      llm_candidates_count: topCandidates.length,\n      high_score_bypass_count: highScoreCandidates.length\n    }\n  } \n}];"
+      },
+      "id": "stage3-prep",
+      "name": "Stage 3: Prepare LLM Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * STAGE 3: LLM QUALITATIVE CHECK (Gemini API)\n * Qualitative assessment for top candidates\n * Only called for edge cases to control costs\n */\n\nconst data = $input.first().json;\nconst llmCandidates = data.llm_candidates || [];\nconst highScoreBypass = data.high_score_bypass || [];\nconst stats = data.stats;\n\nconst startTime = Date.now();\nconst GEMINI_API_KEY = $env.GEMINI_API_KEY || '';\nconst GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';\n\n// Results storage\nconst llmResults = [];\nconst errors = [];\n\n// Helper: Call Gemini API\nasync function callGemini(candidate) {\n  const prompt = `You are a loan eligibility expert. Evaluate if this user is a good candidate for this loan product.\n\nUSER PROFILE:\n- Age: ${candidate.user_age} years\n- Monthly Income: Rs.${candidate.user_income}\n- Credit Score: ${candidate.user_credit_score}\n- Employment: ${candidate.user_employment}\n- Max Affordable EMI: Rs.${Math.round(candidate.max_affordable_emi)}\n\nLOAN PRODUCT:\n- Name: ${candidate.product_name}\n- Provider: ${candidate.provider_name}\n- Interest Rate: ${candidate.interest_rate_min}% - ${candidate.interest_rate_max}%\n- Loan Amount: Rs.${candidate.loan_amount_min} - Rs.${candidate.loan_amount_max}\n\nCurrent Eligibility Score: ${candidate.eligibility_score}/100\n\nRespond ONLY with valid JSON:\n{\"qualified\": true/false, \"confidence\": 0.0-1.0, \"reasoning\": \"brief explanation\", \"risk_factors\": [\"factor1\"]}`;\n\n  try {\n    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        contents: [{ parts: [{ text: prompt }] }],\n        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }\n      })\n    });\n    \n    if (!response.ok) {\n      throw new Error(`API error: ${response.status}`);\n    }\n    \n    const result = await response.json();\n    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';\n    \n    // Extract JSON from response\n    const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      return JSON.parse(jsonMatch[0]);\n    }\n    throw new Error('No JSON in response');\n  } catch (err) {\n    return { qualified: true, confidence: 0.6, reasoning: `LLM check failed: ${err.message}`, risk_factors: ['llm_error'] };\n  }\n}\n\n// Process candidates\nif (GEMINI_API_KEY && llmCandidates.length > 0) {\n  // Process in batches of 5 to avoid rate limits\n  const BATCH_SIZE = 5;\n  for (let i = 0; i < llmCandidates.length; i += BATCH_SIZE) {\n    const batch = llmCandidates.slice(i, i + BATCH_SIZE);\n    \n    for (const candidate of batch) {\n      try {\n        const llmResult = await callGemini(candidate);\n        \n        llmResults.push({\n          ...candidate,\n          llm_qualified: llmResult.qualified,\n          llm_confidence: llmResult.confidence,\n          llm_reasoning: llmResult.reasoning,\n          llm_risk_factors: llmResult.risk_factors || [],\n          match_source: 'llm_check'\n        });\n      } catch (err) {\n        errors.push(`User ${candidate.user_id}: ${err.message}`);\n        // On error, include if score is high enough\n        if (candidate.eligibility_score >= 60) {\n          llmResults.push({\n            ...candidate,\n            llm_qualified: true,\n            llm_confidence: 0.5,\n            llm_reasoning: 'LLM check skipped due to error, approved based on score',\n            llm_risk_factors: ['llm_error'],\n            match_source: 'score_fallback'\n          });\n        }\n      }\n    }\n    \n    // Small delay between batches\n    if (i + BATCH_SIZE < llmCandidates.length) {\n      await new Promise(r => setTimeout(r, 200));\n    }\n  }\n} else {\n  // No API key - approve based on score\n  for (const candidate of llmCandidates) {\n    llmResults.push({\n      ...candidate,\n      llm_qualified: candidate.eligibility_score >= 50,\n      llm_confidence: 0.7,\n      llm_reasoning: 'LLM check skipped - no API key configured',\n      llm_risk_factors: [],\n      match_source: 'score_only'\n    });\n  }\n}\n\n// Add high-score bypass candidates\nfor (const candidate of highScoreBypass) {\n  llmResults.push({\n    ...candidate,\n    llm_qualified: true,\n    llm_confidence: 0.9,\n    llm_reasoning: 'High score bypass - no LLM check needed',\n    llm_risk_factors: [],\n    match_source: 'high_score_bypass'\n  });\n}\n\n// Filter to only qualified matches\nconst finalMatches = llmResults.filter(r => r.llm_qualified);\n\nconst stage3Time = Date.now() - startTime;\n\nreturn [{ \n  json: { \n    final_matches: finalMatches,\n    all_results: llmResults,\n    stats: {\n      ...stats,\n      stage3_processed: llmResults.length,\n      stage3_qualified: finalMatches.length,\n      stage3_time_ms: stage3Time,\n      llm_errors: errors.length,\n      total_matches: finalMatches.length\n    },\n    errors: errors\n  } \n}];"
+      },
+      "id": "stage3-llm-check",
+      "name": "Stage 3: LLM Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * SAVE MATCHES TO DATABASE\n * Build SQL query and prepare for database insert\n */\n\nconst data = $input.first().json;\nconst matches = data.final_matches || [];\nconst stats = data.stats;\n\nif (matches.length === 0) {\n  return [{ \n    json: { \n      sql_query: 'SELECT 0 as inserted_count',\n      final_matches: matches,\n      stats: stats,\n      errors: data.errors\n    } \n  }];\n}\n\n// Build SQL values - escape single quotes properly\nconst values = matches.map(m => {\n  const llmAnalysis = m.llm_reasoning ? \"'\" + String(m.llm_reasoning).replace(/'/g, \"''\") + \"'\" : 'NULL';\n  const llmConf = m.llm_confidence ? m.llm_confidence : 'NULL';\n  return `(${m.user_id}, ${m.product_id}, ${m.eligibility_score}, 'matched', '${m.match_source || 'pipeline'}', ${m.income_eligible}, ${m.credit_eligible}, ${m.age_eligible}, ${m.employment_eligible}, ${llmAnalysis}, ${llmConf})`;\n}).join(', ');\n\nconst sqlQuery = `INSERT INTO matches (user_id, product_id, match_score, status, match_source, income_eligible, credit_score_eligible, age_eligible, employment_eligible, llm_analysis, llm_confidence) VALUES ${values} ON CONFLICT (user_id, product_id) DO UPDATE SET match_score = EXCLUDED.match_score, status = EXCLUDED.status, match_source = EXCLUDED.match_source, llm_analysis = EXCLUDED.llm_analysis, llm_confidence = EXCLUDED.llm_confidence, updated_at = NOW() RETURNING id`;\n\nreturn [{ \n  json: { \n    sql_query: sqlQuery,\n    final_matches: matches,\n    stats: stats,\n    errors: data.errors\n  } \n}];"
+      },
+      "id": "prepare-save",
+      "name": "Prepare Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "id": "save-matches",
+      "name": "Save Matches",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [2050, 400],
+      "credentials": {
+        "postgres": {
+          "id": "loan-db-credential",
+          "name": "Loan Engine Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * BUILD FINAL RESPONSE\n * Summary of the 3-stage optimization pipeline\n */\n\nconst prevData = $('Prepare Save').first().json;\nconst matches = prevData.final_matches || [];\nconst stats = prevData.stats || {};\nconst errors = prevData.errors || [];\n\n// Calculate overall performance\nconst totalTime = (stats.stage1_time_ms || 0) + (stats.stage2_time_ms || 0) + (stats.stage3_time_ms || 0);\nconst overallReduction = stats.total_pairs > 0 ? \n  ((stats.total_pairs - stats.total_matches) / stats.total_pairs * 100).toFixed(1) : 0;\n\nreturn [{ \n  json: { \n    success: true,\n    message: `Matched ${matches.length} users to loan products`,\n    \n    // Summary stats\n    summary: {\n      users_processed: stats.total_users,\n      products_available: stats.total_products,\n      total_pairs_evaluated: stats.total_pairs,\n      final_matches: stats.total_matches,\n      overall_reduction_percent: overallReduction,\n      total_processing_time_ms: totalTime\n    },\n    \n    // Pipeline stages breakdown\n    pipeline: {\n      stage1_sql_prefilter: {\n        input: stats.total_pairs,\n        output: stats.stage1_passed,\n        reduction_percent: stats.stage1_reduction_percent,\n        time_ms: stats.stage1_time_ms\n      },\n      stage2_logic_filter: {\n        input: stats.stage1_passed,\n        output: stats.stage2_passed,\n        reduction_percent: stats.stage2_reduction_percent,\n        time_ms: stats.stage2_time_ms\n      },\n      stage3_llm_check: {\n        candidates_processed: stats.stage3_processed,\n        qualified: stats.stage3_qualified,\n        high_score_bypass: stats.high_score_bypass_count,\n        time_ms: stats.stage3_time_ms,\n        errors: stats.llm_errors\n      }\n    },\n    \n    // Match details\n    matches: matches.map(m => ({\n      user_id: m.user_id,\n      user_email: m.user_email,\n      product_id: m.product_id,\n      product_name: m.product_name,\n      provider_name: m.provider_name,\n      match_score: m.eligibility_score,\n      llm_confidence: m.llm_confidence,\n      match_source: m.match_source\n    })),\n    \n    // Errors if any\n    errors: errors.length > 0 ? errors : undefined\n  } \n}];"
+      },
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2450, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Users": {
+      "main": [
+        [
+          {
+            "node": "Prepare Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Users": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Products": {
+      "main": [
+        [
+          {
+            "node": "Stage 1: SQL Prefilter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 1: SQL Prefilter": {
+      "main": [
+        [
+          {
+            "node": "Stage 2: Logic Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 2: Logic Filter": {
+      "main": [
+        [
+          {
+            "node": "Stage 3: Prepare LLM Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 3: Prepare LLM Batch": {
+      "main": [
+        [
+          {
+            "node": "Stage 3: LLM Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 3: LLM Check": {
+      "main": [
+        [
+          {
+            "node": "Prepare Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Save": {
+      "main": [
+        [
+          {
+            "node": "Save Matches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Matches": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5",
+  "meta": {
+    "instanceId": "workflow-b-matching-optimized"
+  },
+  "tags": []
+}

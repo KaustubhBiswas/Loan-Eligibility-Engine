@@ -1,0 +1,126 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+loan-engine
+loan-engine.exe
+
+# Serverless
+.serverless/
+.build/
+.aws-sam/
+
+# Node modules (for serverless)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# n8n data (if running locally without Docker)
+.n8n/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database dumps
+*.sql.gz
+*.dump
+
+# AWS credentials (never commit!)
+*.pem
+*.key
+credentials
+
+# Phase documentation (keep only final deliverables)
+PHASE*.md
+*_COMPLETE.md
+*_TESTING*.md
+*_SETUP*.md
+task.txt
+
+# Ignore old/backup files
+*.bak
+*.backup
+*.old
+*_old.*
+
+# Compiled binaries from cmd/lambda
+cmd/lambda/*/bootstrap
+cmd/lambda/*/main
+
+# Go build cache
+go.sum.bak
+
+# Docker
+docker-compose.override.yml
+
+# n8n data (local)
+n8n/data/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# AWS
+.aws/
+
+# Coverage
+coverage/
+
+# Test artifacts
+test-results/
+
+#Irrelevant files
+task.txt
+AWS_SES_SETUP_GUIDE.md
+END_TO_END_TESTING.md
+IMPLEMENTATION_PLAN.md
+PHASE3_COMPLETE.md
+PHASE4_COMPLETE.md
+PHASE3_IMPLEMENTATION_COMPLETE.md
+PHASE3_SETUP_GUIDE.md
+VIDEO_SCRIPT.md
+Makefile

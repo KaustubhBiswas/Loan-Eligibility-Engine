@@ -1,0 +1,148 @@
+service: loan-eligibility-engine
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: provided.al2
+  architecture: x86_64
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  
+  environment:
+    STAGE: ${self:provider.stage}
+    DB_HOST: ${ssm:/loan-eligibility/${self:provider.stage}/db-host, ''}
+    DB_PORT: ${ssm:/loan-eligibility/${self:provider.stage}/db-port, '5432'}
+    DB_NAME: ${ssm:/loan-eligibility/${self:provider.stage}/db-name, 'loan_eligibility'}
+    DB_USER: ${ssm:/loan-eligibility/${self:provider.stage}/db-user, ''}
+    DB_PASSWORD: ${ssm:/loan-eligibility/${self:provider.stage}/db-password, ''}
+    S3_BUCKET: ${self:custom.s3Bucket}
+    N8N_WEBHOOK_URL: ${ssm:/loan-eligibility/${self:provider.stage}/n8n-webhook-url, ''}
+    SES_SENDER_EMAIL: ${ssm:/loan-eligibility/${self:provider.stage}/ses-sender-email, ''}
+  
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::${self:custom.s3Bucket}/*
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+          Resource:
+            - arn:aws:ssm:${self:provider.region}:*:parameter/loan-eligibility/*
+
+custom:
+  s3Bucket: loan-eligibility-csv-${self:provider.stage}
+
+package:
+  individually: true
+  patterns:
+    - '!**/*'
+
+functions:
+  # Generate presigned URL for secure CSV upload
+  generatePresignedUrl:
+    handler: bootstrap
+    description: Generate S3 presigned URL for CSV upload
+    memorySize: 256
+    timeout: 10
+    package:
+      artifact: bin/presigned-url/presigned-url.zip
+    events:
+      - http:
+          path: /upload-url
+          method: get
+          cors: true
+
+  # Process CSV files uploaded to S3
+  processCSV:
+    handler: bootstrap
+    description: Process CSV files from S3 and store in RDS
+    memorySize: 512
+    timeout: 300
+    package:
+      artifact: bin/csv-processor/csv-processor.zip
+    events:
+      - s3:
+          bucket: ${self:custom.s3Bucket}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .csv
+          existing: true
+
+  # Trigger n8n webhook after CSV processing
+  triggerMatching:
+    handler: bootstrap
+    description: Trigger n8n matching workflow via webhook
+    memorySize: 256
+    timeout: 30
+    package:
+      artifact: bin/webhook-trigger/webhook-trigger.zip
+    events:
+      - http:
+          path: /trigger-matching
+          method: post
+          cors: true
+
+  # Health check endpoint
+  healthCheck:
+    handler: bootstrap
+    description: API health check
+    memorySize: 128
+    timeout: 5
+    package:
+      artifact: bin/health/health.zip
+    events:
+      - http:
+          path: /health
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    # S3 Bucket for CSV uploads
+    CSVUploadBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3Bucket}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+              AllowedOrigins:
+                - '*'
+              MaxAge: 3000
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldFiles
+              Status: Enabled
+              ExpirationInDays: 30
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+  Outputs:
+    ApiGatewayUrl:
+      Description: API Gateway URL
+      Value:
+        Fn::Sub: https://${ApiGatewayRestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}
+    S3BucketName:
+      Description: S3 Bucket for CSV uploads
+      Value: ${self:custom.s3Bucket}

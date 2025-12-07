@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Loan Eligibility Engine</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="api-docs.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Ensure proper layout */
+        .main {
+            padding: 20px;
+        }
+        .docs-main {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)"/>
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop stop-color="#667eea"/>
+                            <stop offset="1" stop-color="#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Loan Eligibility Engine</h1>
+            </div>
+            <nav>
+                <a href="index.html" class="nav-link">Upload</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="api-docs.html" class="nav-link active">API Docs</a>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main docs-main">
+            <!-- Sidebar -->
+            <aside class="docs-sidebar">
+                <nav class="docs-nav">
+                    <h3>Getting Started</h3>
+                    <ul>
+                        <li><a href="#overview">Overview</a></li>
+                        <li><a href="#base-url">Base URL</a></li>
+                        <li><a href="#authentication">Authentication</a></li>
+                    </ul>
+                    
+                    <h3>API Endpoints</h3>
+                    <ul>
+                        <li><a href="#health">Health Check</a></li>
+                        <li><a href="#upload">CSV Upload</a></li>
+                        <li><a href="#products">Products</a></li>
+                        <li><a href="#matches">Matches</a></li>
+                    </ul>
+                    
+                    <h3>n8n Webhooks</h3>
+                    <ul>
+                        <li><a href="#webhook-crawler">Loan Crawler</a></li>
+                        <li><a href="#webhook-matcher">User Matching</a></li>
+                        <li><a href="#webhook-notify">Notifications</a></li>
+                    </ul>
+                    
+                    <h3>Data Models</h3>
+                    <ul>
+                        <li><a href="#model-user">User</a></li>
+                        <li><a href="#model-product">Loan Product</a></li>
+                        <li><a href="#model-match">Match</a></li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <!-- Docs Content -->
+            <div class="docs-content">
+                <!-- Overview -->
+                <section id="overview" class="docs-section">
+                    <h2>Overview</h2>
+                    <p>The Loan Eligibility Engine API provides endpoints for managing user data, loan products, and matching users with eligible loan products. The system consists of:</p>
+                    <ul>
+                        <li><strong>Go Backend API</strong> - RESTful API for data management</li>
+                        <li><strong>n8n Workflows</strong> - Automation for crawling, matching, and notifications</li>
+                        <li><strong>PostgreSQL Database</strong> - Data persistence on AWS RDS</li>
+                        <li><strong>AWS SES</strong> - Email notifications</li>
+                    </ul>
+                </section>
+
+                <!-- Base URL -->
+                <section id="base-url" class="docs-section">
+                    <h2>Base URL</h2>
+                    <div class="endpoint-box">
+                        <code class="base-url">http://localhost:8080</code>
+                    </div>
+                    <p>For n8n webhooks:</p>
+                    <div class="endpoint-box">
+                        <code class="base-url">http://localhost:5678</code>
+                    </div>
+                </section>
+
+                <!-- Authentication -->
+                <section id="authentication" class="docs-section">
+                    <h2>Authentication</h2>
+                    <p>Currently, the API does not require authentication for local development. In production, add appropriate authentication headers.</p>
+                </section>
+
+                <!-- Health Check -->
+                <section id="health" class="docs-section">
+                    <h2>Health Check</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method get">GET</span>
+                            <code>/health</code>
+                        </div>
+                        <p>Check the health status of the API and database connection.</p>
+                        
+                        <h4>Response</h4>
+                        <pre class="code-block"><code>{
+  "success": true,
+  "message": "Loan Eligibility Engine API is running",
+  "data": {
+    "status": "healthy",
+    "database": "connected",
+    "timestamp": "2024-12-07T10:30:00Z",
+    "version": "1.0.0"
+  }
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl http://localhost:8080/health</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CSV Upload -->
+                <section id="upload" class="docs-section">
+                    <h2>CSV Upload</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method post">POST</span>
+                            <code>/api/upload</code>
+                        </div>
+                        <p>Upload a CSV file containing user data for processing.</p>
+                        
+                        <h4>Request</h4>
+                        <p>Content-Type: <code>multipart/form-data</code></p>
+                        <table class="params-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>file</code></td>
+                                    <td>File</td>
+                                    <td>CSV file with user data</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>CSV Format</h4>
+                        <pre class="code-block"><code>user_id,email,monthly_income,credit_score,employment_status,age
+U001,user@email.com,75000,720,salaried,32</code></pre>
+
+                        <h4>Response</h4>
+                        <pre class="code-block"><code>{
+  "success": true,
+  "data": {
+    "batch_id": "batch_20241207_103000",
+    "total_rows": 100,
+    "valid_users": 95,
+    "errors": 5,
+    "matches_found": 450,
+    "processing_ms": 1250
+  }
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl -X POST http://localhost:8080/api/upload \
+  -F "file=@users.csv"</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Products -->
+                <section id="products" class="docs-section">
+                    <h2>Products</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method get">GET</span>
+                            <code>/api/products</code>
+                        </div>
+                        <p>Retrieve all active loan products.</p>
+                        
+                        <h4>Response</h4>
+                        <pre class="code-block"><code>{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "product_name": "HDFC Personal Loan",
+      "provider_name": "HDFC Bank",
+      "product_type": "personal",
+      "interest_rate_min": 10.50,
+      "interest_rate_max": 21.00,
+      "loan_amount_min": 50000,
+      "loan_amount_max": 4000000,
+      "tenure_min_months": 12,
+      "tenure_max_months": 60,
+      "min_monthly_income": 25000,
+      "min_credit_score": 650,
+      "accepted_employment_status": ["salaried", "self_employed"]
+    }
+  ]
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl http://localhost:8080/api/products</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Matches -->
+                <section id="matches" class="docs-section">
+                    <h2>Matches</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method get">GET</span>
+                            <code>/api/matches</code>
+                        </div>
+                        <p>Retrieve all user-product matches.</p>
+                        
+                        <h4>Query Parameters</h4>
+                        <table class="params-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>user_id</code></td>
+                                    <td>integer</td>
+                                    <td>Filter by user ID (optional)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>status</code></td>
+                                    <td>string</td>
+                                    <td>Filter by status: pending, matched, notified (optional)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Response</h4>
+                        <pre class="code-block"><code>{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "product_id": 1,
+      "user_email": "user@email.com",
+      "product_name": "HDFC Personal Loan",
+      "provider_name": "HDFC Bank",
+      "match_score": 95.50,
+      "status": "matched",
+      "income_eligible": true,
+      "credit_score_eligible": true,
+      "age_eligible": true,
+      "employment_eligible": true,
+      "created_at": "2024-12-07T10:30:00Z"
+    }
+  ]
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl http://localhost:8080/api/matches</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Webhook: Crawler -->
+                <section id="webhook-crawler" class="docs-section">
+                    <h2>Webhook: Loan Crawler</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method post">POST</span>
+                            <code>/webhook/crawl-loans</code>
+                        </div>
+                        <p>Trigger the loan product crawler workflow (n8n Workflow A).</p>
+                        
+                        <h4>Request Body</h4>
+                        <pre class="code-block"><code>{
+  "trigger": "manual"
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl -X POST http://localhost:5678/webhook/crawl-loans \
+  -H "Content-Type: application/json" \
+  -d '{"trigger": "manual"}'</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Webhook: Matcher -->
+                <section id="webhook-matcher" class="docs-section">
+                    <h2>Webhook: User Matching</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method post">POST</span>
+                            <code>/webhook/match-users</code>
+                        </div>
+                        <p>Trigger the user-loan matching workflow (n8n Workflow B).</p>
+                        
+                        <h4>Request Body</h4>
+                        <pre class="code-block"><code>{
+  "process_all": true
+}</code></pre>
+
+                        <h4>Response</h4>
+                        <pre class="code-block"><code>{
+  "success": true,
+  "users_processed": 15,
+  "products_available": 5,
+  "total_matches": 75,
+  "matches": [...]
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl -X POST http://localhost:5678/webhook/match-users \
+  -H "Content-Type: application/json" \
+  -d '{"process_all": true}'</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Webhook: Notify -->
+                <section id="webhook-notify" class="docs-section">
+                    <h2>Webhook: Send Notification</h2>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="method post">POST</span>
+                            <code>/webhook/notify-user</code>
+                        </div>
+                        <p>Send email notification to a user with matched products (n8n Workflow C).</p>
+                        
+                        <h4>Request Body</h4>
+                        <pre class="code-block"><code>{
+  "user_email": "user@email.com",
+  "user_name": "John Doe",
+  "match_id": "match-123",
+  "matched_products": [
+    {
+      "product_name": "HDFC Personal Loan",
+      "provider": "HDFC Bank",
+      "interest_rate": 10.5,
+      "min_amount": 50000,
+      "max_amount": 4000000,
+      "match_score": 95
+    }
+  ]
+}</code></pre>
+
+                        <h4>Response</h4>
+                        <pre class="code-block"><code>{
+  "SendEmailResponse": {
+    "SendEmailResult": {
+      "MessageId": "0109019af7b0e307-..."
+    }
+  }
+}</code></pre>
+
+                        <h4>Try it</h4>
+                        <div class="try-it">
+                            <pre class="code-block"><code>curl -X POST http://localhost:5678/webhook/notify-user \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "test@email.com",
+    "user_name": "Test User",
+    "match_id": "test-123",
+    "matched_products": [{
+      "product_name": "Test Loan",
+      "provider": "Test Bank",
+      "interest_rate": 10.5,
+      "min_amount": 50000,
+      "max_amount": 500000,
+      "match_score": 90
+    }]
+  }'</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Model: User -->
+                <section id="model-user" class="docs-section">
+                    <h2>Data Model: User</h2>
+                    <table class="model-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>id</code></td><td>integer</td><td>Auto-generated ID</td></tr>
+                            <tr><td><code>user_id</code></td><td>string</td><td>Unique user identifier</td></tr>
+                            <tr><td><code>email</code></td><td>string</td><td>Email address</td></tr>
+                            <tr><td><code>monthly_income</code></td><td>decimal</td><td>Monthly income in INR</td></tr>
+                            <tr><td><code>credit_score</code></td><td>integer</td><td>Credit score (300-900)</td></tr>
+                            <tr><td><code>employment_status</code></td><td>string</td><td>salaried, self_employed, business, etc.</td></tr>
+                            <tr><td><code>age</code></td><td>integer</td><td>Age in years</td></tr>
+                            <tr><td><code>batch_id</code></td><td>string</td><td>Upload batch identifier</td></tr>
+                            <tr><td><code>is_active</code></td><td>boolean</td><td>Active status</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- Model: Product -->
+                <section id="model-product" class="docs-section">
+                    <h2>Data Model: Loan Product</h2>
+                    <table class="model-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>id</code></td><td>integer</td><td>Auto-generated ID</td></tr>
+                            <tr><td><code>product_name</code></td><td>string</td><td>Name of loan product</td></tr>
+                            <tr><td><code>provider_name</code></td><td>string</td><td>Bank/NBFC name</td></tr>
+                            <tr><td><code>product_type</code></td><td>string</td><td>personal, home, education, etc.</td></tr>
+                            <tr><td><code>interest_rate_min</code></td><td>decimal</td><td>Minimum interest rate %</td></tr>
+                            <tr><td><code>interest_rate_max</code></td><td>decimal</td><td>Maximum interest rate %</td></tr>
+                            <tr><td><code>loan_amount_min</code></td><td>decimal</td><td>Minimum loan amount</td></tr>
+                            <tr><td><code>loan_amount_max</code></td><td>decimal</td><td>Maximum loan amount</td></tr>
+                            <tr><td><code>min_monthly_income</code></td><td>decimal</td><td>Required monthly income</td></tr>
+                            <tr><td><code>min_credit_score</code></td><td>integer</td><td>Minimum credit score</td></tr>
+                            <tr><td><code>accepted_employment_status</code></td><td>array</td><td>Accepted employment types</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- Model: Match -->
+                <section id="model-match" class="docs-section">
+                    <h2>Data Model: Match</h2>
+                    <table class="model-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>id</code></td><td>integer</td><td>Auto-generated ID</td></tr>
+                            <tr><td><code>user_id</code></td><td>integer</td><td>Reference to users table</td></tr>
+                            <tr><td><code>product_id</code></td><td>integer</td><td>Reference to loan_products table</td></tr>
+                            <tr><td><code>match_score</code></td><td>decimal</td><td>Match score percentage</td></tr>
+                            <tr><td><code>status</code></td><td>string</td><td>pending, matched, notified, rejected</td></tr>
+                            <tr><td><code>income_eligible</code></td><td>boolean</td><td>Income eligibility check</td></tr>
+                            <tr><td><code>credit_score_eligible</code></td><td>boolean</td><td>Credit score eligibility</td></tr>
+                            <tr><td><code>age_eligible</code></td><td>boolean</td><td>Age eligibility check</td></tr>
+                            <tr><td><code>employment_eligible</code></td><td>boolean</td><td>Employment eligibility</td></tr>
+                            <tr><td><code>notified_at</code></td><td>timestamp</td><td>When notification was sent</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>© 2024 Loan Eligibility Engine. Built with ❤️ for ClickPe</p>
+        </footer>
+    </div>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Highlight active section in sidebar
+        const sections = document.querySelectorAll('.docs-section');
+        const navLinks = document.querySelectorAll('.docs-nav a');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (scrollY >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

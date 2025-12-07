@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Eligibility Engine - Upload Users</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)"/>
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop stop-color="#667eea"/>
+                            <stop offset="1" stop-color="#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Loan Eligibility Engine</h1>
+            </div>
+            <nav>
+                <a href="index.html" class="nav-link active">Upload</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="api-docs.html" class="nav-link">API Docs</a>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Upload Section -->
+            <section id="upload" class="section">
+                <div class="section-header">
+                    <h2>Upload User Data</h2>
+                    <p>Upload a CSV file containing user information for loan eligibility matching</p>
+                </div>
+
+                <!-- Upload Area -->
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <path d="M32 8V40M32 8L20 20M32 8L44 20" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M8 44V48C8 51.3137 10.6863 54 14 54H50C53.3137 54 56 51.3137 56 48V44" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <p class="upload-text">Drag and drop your CSV file here</p>
+                    <p class="upload-subtext">or</p>
+                    <button class="btn btn-primary" id="browseBtn">Browse Files</button>
+                    <input type="file" id="fileInput" accept=".csv" hidden>
+                    <p class="upload-hint">Maximum file size: 10MB | Supported format: CSV</p>
+                </div>
+
+                <!-- File Selected -->
+                <div class="file-selected hidden" id="fileSelected">
+                    <div class="file-info">
+                        <div class="file-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="file-details">
+                            <span class="file-name" id="fileName">users.csv</span>
+                            <span class="file-size" id="fileSize">2.4 MB</span>
+                        </div>
+                        <button class="btn-icon" id="removeFile">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="uploadBtn">
+                        <span>Upload and Process</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Progress -->
+                <div class="upload-progress hidden" id="uploadProgress">
+                    <div class="progress-header">
+                        <span class="progress-title">Uploading...</span>
+                        <span class="progress-percent" id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-status" id="progressStatus">Preparing upload...</p>
+                </div>
+
+                <!-- Success Message -->
+                <div class="upload-success hidden" id="uploadSuccess">
+                    <div class="success-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <circle cx="24" cy="24" r="22" stroke="#10B981" stroke-width="4"/>
+                            <path d="M14 24L21 31L34 18" stroke="#10B981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3>Upload Successful!</h3>
+                    <p>Your file has been uploaded and is being processed.</p>
+                    <div class="success-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="totalRows">-</span>
+                            <span class="stat-label">Total Rows</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="validRows">-</span>
+                            <span class="stat-label">Valid Users</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="errorRows">-</span>
+                            <span class="stat-label">Errors</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" id="uploadAnother">Upload Another File</button>
+                </div>
+
+                <!-- Error Message -->
+                <div class="upload-error hidden" id="uploadError">
+                    <div class="error-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <circle cx="24" cy="24" r="22" stroke="#EF4444" stroke-width="4"/>
+                            <path d="M16 16L32 32M32 16L16 32" stroke="#EF4444" stroke-width="4" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h3>Upload Failed</h3>
+                    <p class="error-message" id="errorMessage">An error occurred while uploading your file.</p>
+                    <button class="btn btn-secondary" id="tryAgain">Try Again</button>
+                </div>
+            </section>
+
+            <!-- CSV Format Guide -->
+            <section class="section section-secondary">
+                <div class="section-header">
+                    <h2>CSV Format Guide</h2>
+                    <p>Ensure your CSV file follows this format for successful processing</p>
+                </div>
+
+                <div class="format-guide">
+                    <table class="format-table">
+                        <thead>
+                            <tr>
+                                <th>Column Name</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>name</code></td>
+                                <td>String</td>
+                                <td>Yes</td>
+                                <td>Full name of the user</td>
+                            </tr>
+                            <tr>
+                                <td><code>email</code></td>
+                                <td>String</td>
+                                <td>Yes</td>
+                                <td>Valid email address</td>
+                            </tr>
+                            <tr>
+                                <td><code>age</code></td>
+                                <td>Integer</td>
+                                <td>Yes</td>
+                                <td>Age between 18-100</td>
+                            </tr>
+                            <tr>
+                                <td><code>annual_income</code></td>
+                                <td>Number</td>
+                                <td>Yes</td>
+                                <td>Annual income in INR</td>
+                            </tr>
+                            <tr>
+                                <td><code>credit_score</code></td>
+                                <td>Integer</td>
+                                <td>Yes</td>
+                                <td>Credit score (300-900)</td>
+                            </tr>
+                            <tr>
+                                <td><code>employment_status</code></td>
+                                <td>String</td>
+                                <td>Yes</td>
+                                <td>salaried, self_employed, business, unemployed, retired, student</td>
+                            </tr>
+                            <tr>
+                                <td><code>loan_amount_required</code></td>
+                                <td>Number</td>
+                                <td>Yes</td>
+                                <td>Required loan amount in INR</td>
+                            </tr>
+                            <tr>
+                                <td><code>location</code></td>
+                                <td>String</td>
+                                <td>No</td>
+                                <td>City or region</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="sample-download">
+                        <h4>Sample CSV</h4>
+                        <pre class="code-block">name,email,age,annual_income,credit_score,employment_status,loan_amount_required,location
+Rahul Sharma,rahul@email.com,32,850000,750,salaried,500000,Mumbai
+Priya Patel,priya@email.com,28,600000,680,self_employed,300000,Delhi</pre>
+                        <button class="btn btn-outline" id="downloadSample">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 2V10M8 10L5 7M8 10L11 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M2 11V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                            Download Sample CSV
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

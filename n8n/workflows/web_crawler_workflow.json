@@ -1,0 +1,250 @@
+{
+  "name": "Loan Eligibility - Web Crawler Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-crawler",
+        "responseMode": "onReceived"
+      },
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// List of loan product sources to crawl\nconst sources = [\n  {\n    name: 'HDFC Bank',\n    url: 'https://www.hdfcbank.com/personal/borrow/popular-loans/personal-loan',\n    selector: '.loan-product-card'\n  },\n  {\n    name: 'ICICI Bank',\n    url: 'https://www.icicibank.com/personal-banking/loans/personal-loan',\n    selector: '.product-details'\n  },\n  {\n    name: 'SBI',\n    url: 'https://sbi.co.in/web/personal-banking/loans/personal-loans',\n    selector: '.loan-info'\n  },\n  {\n    name: 'Axis Bank',\n    url: 'https://www.axisbank.com/retail/loans/personal-loan',\n    selector: '.product-card'\n  },\n  {\n    name: 'Bajaj Finserv',\n    url: 'https://www.bajajfinserv.in/personal-loan',\n    selector: '.loan-details'\n  }\n];\n\nreturn sources.map(source => ({ json: source }));"
+      },
+      "id": "get-sources",
+      "name": "Get Crawler Sources",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "timeout": 30000,
+          "followAllRedirects": true
+        }
+      },
+      "id": "fetch-page",
+      "name": "Fetch Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const html = items[0].json.data || '';\nconst sourceName = items[0].json.name;\nconst sourceUrl = items[0].json.url;\n\n// This is a simplified parser - in production, use proper HTML parsing\n// For demo purposes, we'll return mock data\n\nconst mockProducts = [\n  {\n    name: `${sourceName} Personal Loan`,\n    provider: sourceName,\n    interest_rate_min: 10.5,\n    interest_rate_max: 18.0,\n    min_loan_amount: 50000,\n    max_loan_amount: 2500000,\n    min_credit_score: 700,\n    min_annual_income: 300000,\n    min_age: 21,\n    max_age: 60,\n    allowed_employment_types: ['salaried', 'self_employed'],\n    source_url: sourceUrl\n  }\n];\n\nreturn mockProducts.map(p => ({ json: p }));"
+      },
+      "id": "parse-products",
+      "name": "Parse Products",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.API_GATEWAY_URL}}/api/products/upsert",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "product",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      },
+      "id": "save-product",
+      "name": "Save Product to DB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate results\nconst results = items.map(item => ({\n  product: item.json.name,\n  status: item.json.error ? 'failed' : 'success',\n  error: item.json.error || null\n}));\n\nconst successful = results.filter(r => r.status === 'success').length;\nconst failed = results.filter(r => r.status === 'failed').length;\n\nreturn [{\n  json: {\n    status: 'completed',\n    timestamp: new Date().toISOString(),\n    summary: {\n      total_sources: items.length,\n      products_saved: successful,\n      products_failed: failed\n    },\n    details: results\n  }\n}];"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.summary.products_failed}}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check-failures",
+      "name": "Check for Failures",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@loanengine.com",
+        "toEmail": "={{$env.ADMIN_EMAIL}}",
+        "subject": "Crawler Alert: Some products failed to update",
+        "text": "Crawler run completed with failures:\n\n{{$json.summary}}\n\nDetails:\n{{$json.details}}"
+      },
+      "id": "send-alert",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "console.log('Crawler completed successfully:', JSON.stringify(items[0].json));\nreturn items;"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1650, 500]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Crawler Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Crawler Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Crawler Sources": {
+      "main": [
+        [
+          {
+            "node": "Fetch Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Products": {
+      "main": [
+        [
+          {
+            "node": "Save Product to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Product to DB": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Check for Failures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Failures": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "loan-eligibility"
+    },
+    {
+      "name": "web-crawler"
+    }
+  ]
+}

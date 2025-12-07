@@ -1,0 +1,185 @@
+{
+  "name": "Workflow C - User Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notify-user",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "notify-user"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and validate input\nconst body = $input.first().json.body || $input.first().json;\n\n// Get fields from body\nconst userEmail = body.user_email || '';\nconst userName = body.user_name || 'User';\nconst matchId = body.match_id || '';\nlet matchedProducts = body.matched_products || [];\n\n// If matched_products is a string, try to parse it\nif (typeof matchedProducts === 'string') {\n  try {\n    matchedProducts = JSON.parse(matchedProducts);\n  } catch (e) {\n    matchedProducts = [];\n  }\n}\n\n// Ensure it's an array\nif (!Array.isArray(matchedProducts)) {\n  matchedProducts = [];\n}\n\n// Validate required fields\nconst isValid = userEmail && userEmail.includes('@') && matchedProducts.length > 0;\n\nreturn {\n  isValid,\n  userEmail,\n  userName,\n  matchId,\n  matchedProducts,\n  productCount: matchedProducts.length,\n  error: !isValid ? 'Missing email or products' : null\n};"
+      },
+      "id": "code-validate-1",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "valid-check",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-valid-1",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build HTML email body from matched products\nconst data = $input.first().json;\nconst products = data.matchedProducts;\nconst userName = data.userName;\n\nlet productRows = '';\nfor (const product of products) {\n  productRows += `\n    <tr>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\">${product.product_name || product.productName || 'N/A'}</td>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\">${product.provider || product.provider_name || 'N/A'}</td>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\">${product.interest_rate || product.interestRate || 'N/A'}%</td>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\">₹${(product.min_amount || product.minAmount || 0).toLocaleString()} - ₹${(product.max_amount || product.maxAmount || 0).toLocaleString()}</td>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\">${product.match_score || product.matchScore || 100}%</td>\n    </tr>`;\n}\n\nconst htmlBody = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    h1 { color: #2c3e50; }\n    table { width: 100%; border-collapse: collapse; margin: 20px 0; }\n    th { background-color: #3498db; color: white; padding: 12px; text-align: left; }\n    tr:nth-child(even) { background-color: #f2f2f2; }\n    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <h1>🎉 Great News, ${userName}!</h1>\n    <p>We found <strong>${products.length} loan product${products.length > 1 ? 's' : ''}</strong> that match your profile:</p>\n    \n    <table>\n      <thead>\n        <tr>\n          <th>Product</th>\n          <th>Provider</th>\n          <th>Interest Rate</th>\n          <th>Amount Range</th>\n          <th>Match Score</th>\n        </tr>\n      </thead>\n      <tbody>\n        ${productRows}\n      </tbody>\n    </table>\n    \n    <p>These loans have been carefully matched based on your financial profile. Click on any product to learn more and apply.</p>\n    \n    <div class=\"footer\">\n      <p>This is an automated notification from ClickPe Loan Eligibility Engine.</p>\n      <p>If you have questions, please contact our support team.</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  ...data,\n  emailSubject: `${userName}, we found ${products.length} loan${products.length > 1 ? 's' : ''} for you!`,\n  emailBody: htmlBody\n};"
+      },
+      "id": "code-email-1",
+      "name": "Build Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "fromEmail": "kaustubhbiswas001@gmail.com",
+        "toAddresses": "={{ $json.userEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "body": "={{ $json.emailBody }}",
+        "additionalFields": {}
+      },
+      "id": "ses-1",
+      "name": "Send Email via SES",
+      "type": "n8n-nodes-base.awsSes",
+      "typeVersion": 1,
+      "position": [1120, 200],
+      "credentials": {
+        "aws": {
+          "id": "aws-ses-credential",
+          "name": "AWS SES"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "success-1",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error || 'Invalid input: missing email or products' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "error-1",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email via SES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email via SES": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "pinData": {}
+}

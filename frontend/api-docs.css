@@ -1,0 +1,244 @@
+/* API Documentation Styles */
+
+.docs-main {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 40px;
+    padding-top: 32px;
+    min-height: calc(100vh - 200px);
+}
+
+@media (max-width: 900px) {
+    .docs-main {
+        grid-template-columns: 1fr;
+    }
+    
+    .docs-sidebar {
+        display: none;
+    }
+}
+
+/* Sidebar */
+.docs-sidebar {
+    position: sticky;
+    top: 24px;
+    height: fit-content;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.docs-nav h3 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-top: 24px;
+    margin-bottom: 8px;
+}
+
+.docs-nav h3:first-child {
+    margin-top: 0;
+}
+
+.docs-nav ul {
+    list-style: none;
+}
+
+.docs-nav a {
+    display: block;
+    padding: 6px 12px;
+    margin: 2px 0;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    border-radius: var(--radius);
+    transition: var(--transition);
+}
+
+.docs-nav a:hover {
+    color: var(--primary-color);
+    background: var(--bg-tertiary);
+}
+
+.docs-nav a.active {
+    color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.1);
+    font-weight: 500;
+}
+
+/* Content */
+.docs-content {
+    max-width: 800px;
+}
+
+.docs-section {
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.docs-section:last-child {
+    border-bottom: none;
+}
+
+.docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+
+.docs-section p {
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.7;
+}
+
+.docs-section ul {
+    margin-left: 24px;
+    margin-bottom: 16px;
+}
+
+.docs-section li {
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.docs-section h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 24px;
+    margin-bottom: 12px;
+}
+
+/* Endpoint Box */
+.endpoint-box {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.base-url {
+    font-family: 'Fira Code', monospace;
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+/* Endpoint Card */
+.endpoint {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.method {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.method.get {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+}
+
+.method.post {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+
+.method.put {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+
+.method.delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+}
+
+.endpoint-header code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+/* Code Block */
+.code-block {
+    background: #1e1e2e;
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow-x: auto;
+    margin-bottom: 16px;
+}
+
+.code-block code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: #cdd6f4;
+    line-height: 1.6;
+    white-space: pre;
+}
+
+/* Try It Section */
+.try-it {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 16px;
+}
+
+.try-it .code-block {
+    margin-bottom: 0;
+}
+
+/* Tables */
+.params-table,
+.model-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 0.875rem;
+}
+
+.params-table th,
+.model-table th {
+    text-align: left;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.params-table td,
+.model-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.params-table code,
+.model-table code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--primary-color);
+}

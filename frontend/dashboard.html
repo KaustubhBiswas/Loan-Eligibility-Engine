@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Loan Eligibility Engine</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)"/>
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop stop-color="#667eea"/>
+                            <stop offset="1" stop-color="#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Loan Eligibility Engine</h1>
+            </div>
+            <nav>
+                <a href="index.html" class="nav-link">Upload</a>
+                <a href="dashboard.html" class="nav-link active">Dashboard</a>
+                <a href="api-docs.html" class="nav-link">API Docs</a>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main dashboard-main">
+            <!-- Stats Cards -->
+            <section class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon users">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="totalUsers">-</span>
+                            <span class="stat-label">Total Users</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon products">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="totalProducts">-</span>
+                            <span class="stat-label">Loan Products</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon matches">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="totalMatches">-</span>
+                            <span class="stat-label">Total Matches</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon notifications">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="notificationsSent">-</span>
+                            <span class="stat-label">Emails Sent</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Workflow Status -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Workflow Status</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline btn-sm" id="refreshStatus">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 8A6 6 0 1 1 8 2"/>
+                                <path d="M14 2v6h-6"/>
+                            </svg>
+                            Refresh
+                        </button>
+                        <button class="btn btn-outline btn-sm" id="clearData" style="color: #dc2626; border-color: #dc2626;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Clear All Data
+                        </button>
+                    </div>
+                </div>
+                <div class="workflow-grid">
+                    <div class="workflow-card">
+                        <div class="workflow-header">
+                            <div class="workflow-icon crawler">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="2" y1="12" x2="22" y2="12"/>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                </svg>
+                            </div>
+                            <div class="workflow-info">
+                                <h3>Workflow A: Loan Crawler</h3>
+                                <span class="workflow-status" id="crawlerStatus">Unknown</span>
+                            </div>
+                        </div>
+                        <p class="workflow-desc">Crawls loan product data from bank websites</p>
+                        <button class="btn btn-primary btn-sm" id="triggerCrawler">Run Crawler</button>
+                    </div>
+
+                    <div class="workflow-card">
+                        <div class="workflow-header">
+                            <div class="workflow-icon matcher">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                                    <polyline points="2 17 12 22 22 17"/>
+                                    <polyline points="2 12 12 17 22 12"/>
+                                </svg>
+                            </div>
+                            <div class="workflow-info">
+                                <h3>Workflow B: User Matching</h3>
+                                <span class="workflow-status" id="matcherStatus">Unknown</span>
+                            </div>
+                        </div>
+                        <p class="workflow-desc">Matches users with eligible loan products</p>
+                        <button class="btn btn-primary btn-sm" id="triggerMatcher">Run Matching</button>
+                    </div>
+
+                    <div class="workflow-card">
+                        <div class="workflow-header">
+                            <div class="workflow-icon notifier">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"/>
+                                </svg>
+                            </div>
+                            <div class="workflow-info">
+                                <h3>Workflow C: Notifications</h3>
+                                <span class="workflow-status" id="notifierStatus">Unknown</span>
+                            </div>
+                        </div>
+                        <p class="workflow-desc">Sends email notifications via AWS SES</p>
+                        <button class="btn btn-primary btn-sm" id="triggerNotifier">Send Email Notification</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Matches -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Recent Matches</h2>
+                    <a href="#" class="btn btn-link">View All →</a>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="matchesTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Product</th>
+                                <th>Provider</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matchesBody">
+                            <tr>
+                                <td colspan="6" class="loading-cell">Loading matches...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Loan Products -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Available Loan Products</h2>
+                    <span class="badge" id="productCount">0 products</span>
+                </div>
+                <div class="products-grid" id="productsGrid">
+                    <div class="loading-spinner">Loading products...</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>© 2024 Loan Eligibility Engine. Built with ❤️ for ClickPe</p>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Test Notification Modal -->
+    <div class="modal hidden" id="testEmailModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Send Test Notification</h3>
+                <button class="btn-icon modal-close" id="closeModal">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="testEmail">Email Address</label>
+                    <input type="email" id="testEmail" class="form-input" placeholder="Enter email address">
+                </div>
+                <div class="form-group">
+                    <label for="testName">Name</label>
+                    <input type="text" id="testName" class="form-input" placeholder="Enter name">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelModal">Cancel</button>
+                <button class="btn btn-primary" id="sendTestEmail">Send Email</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js?v=8"></script>
+</body>
+</html>
