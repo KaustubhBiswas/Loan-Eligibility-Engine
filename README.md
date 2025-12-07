@@ -108,7 +108,7 @@ Final Matches → Database → Email Notification
 
 ---
 
-Features
+## Features
 
 ### Core Functionality
 - **CSV Upload & Parsing**: Flexible column name mapping (handles various CSV formats)
@@ -231,7 +231,7 @@ Navigate to: http://localhost:8080
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ClickPe Task/
@@ -328,12 +328,7 @@ ClickPe Task/
    - n8n credential configuration
    - Environment variables
 
-3. **[VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md)** - Demo presentation guide
-   - Introduction & architecture overview
-   - Workflow B deep-dive (3-stage pipeline)
-   - Workflow C explanation
-   - Live demonstration steps
-   - Email result showcase
+
 
 ---
 
@@ -384,15 +379,6 @@ Consider: risk factors, profile fit, special circumstances`
 ---
 
 ## Testing
-
-### Test Files Provided
-Located in `data/`:
-- `test_high_income_users.csv` - Affluent users, high credit scores
-- `test_low_credit_users.csv` - Subprime candidates
-- `test_senior_users.csv` - Age 60-70 profiles
-- `test_young_professionals.csv` - Age 22-28, early career
-- `test_mixed_profiles.csv` - Diverse mix
-- `test_edge_cases.csv` - Boundary conditions
 
 ### Running Tests
 1. Upload any test CSV via dashboard

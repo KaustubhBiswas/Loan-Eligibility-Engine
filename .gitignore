@@ -112,6 +112,7 @@ coverage/
 
 # Test artifacts
 test-results/
+data/
 
 #Irrelevant files
 task.txt
