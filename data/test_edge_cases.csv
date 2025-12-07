@@ -1,8 +1,0 @@
-user_id,email,monthly_income,credit_score,employment_status,age
-Very High Income,veryhigh@example.com,500000,850,Business Owner,45
-Very Low Income,verylow@example.com,15000,750,Salaried,28
-Min Credit,mincredit@example.com,40000,300,Salaried,30
-Max Credit,maxcredit@example.com,60000,900,Salaried,35
-Young Age,youngage@example.com,35000,700,Salaried,18
-Senior Age,seniorage@example.com,55000,780,Retired,65
-Kaustubh Biswas,kaustubhbiswas001@gmail.com,760000,600,Salaried,22
