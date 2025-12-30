@@ -2,8 +2,6 @@
 
 > **A comprehensive, intelligent loan matching system that automates user profiling, product discovery, eligibility matching, and personalized email notifications.**
 
-Built for the ClickPe SDE Intern Backend Assignment - demonstrating production-grade backend engineering, n8n workflow automation, and AWS cloud integration.
-
 ---
 
 ## Table of Contents
@@ -123,17 +121,7 @@ Final Matches → Database → Email Notification
 - **Database-Driven Notifications**: Real matches from DB, no hardcoded data
 - **Extensible Crawler Framework**: n8n workflow ready for web scraping
 - **Case-Insensitive Email Matching**: Robust user lookup
-- **Comprehensive Logging**: Structured logs with emoji indicators
-
-### Test Data Included
-- 6 test CSV files covering different user profiles:
-  - High income users
-  - Low credit score users
-  - Senior citizens
-  - Young professionals
-  - Mixed profiles
-  - Edge cases
-
+- **Comprehensive Logging**: Structured logs for debugging & monitoring
 ---
 
 ## Tech Stack
@@ -453,8 +441,6 @@ CORS_ALLOWED_ORIGINS=http://localhost:8080,http://localhost:5678
 - Verify AWS SES credentials in n8n
 - Check if sender email is verified in SES
 - Look at n8n workflow execution logs
-
-
 
 ---
 
