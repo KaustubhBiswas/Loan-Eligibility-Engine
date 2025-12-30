@@ -38,8 +38,8 @@ services:
       - N8N_RUNNERS_ENABLED=true
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
 
-      #GEMINI API KEY
-      - GEMINI_API_KEY=AIzaSyDmqrbK6B-9p2UODsKxuGAtv-vefYk_xrs
+      #GEMINI API KEY (set via environment variable)
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       
     volumes:
       - n8n_data:/home/node/.n8n
